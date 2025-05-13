@@ -75,8 +75,9 @@ BEGIN_MESSAGE_MAP(CDrawCircleDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BTN_CLEAR, &CDrawCircleDlg::OnBnClickedBtnClear)
 	ON_BN_CLICKED(IDC_BTN_RANDOM, &CDrawCircleDlg::OnBnClickedBtnRandom)
 	ON_BN_CLICKED(IDC_BTN_STOP, &CDrawCircleDlg::OnBnClickedBtnStop)
-	ON_MESSAGE(WM_BG_THREAD_MSG, &CDrawCircleDlg::OnBGThreadMsg)
+	ON_MESSAGE(WM_FRAME_UPDATE_MSG, &CDrawCircleDlg::OnFrameUpdateMsg)
 	ON_WM_DESTROY()
+	ON_BN_CLICKED(IDC_BTN_CONFIG, &CDrawCircleDlg::OnBnClickedBtnConfig)
 END_MESSAGE_MAP()
 
 
@@ -128,6 +129,10 @@ BOOL CDrawCircleDlg::OnInitDialog()
 
 	// 버튼 상태 초기화 
 	UpdateButtonState(true, true, false);
+
+	// 설정 다이얼로그 초기화
+	p_config_dlg_ = std::make_unique<CConfigDlg>(this);
+	p_config_dlg_->Create(IDD_CConfigDlg, this);
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
@@ -358,7 +363,8 @@ void CDrawCircleDlg::BGProcess() {
 				this->solver_.RandomGenerate(frame_width_, frame_height_);
 				random_count++;
 
-				PostMessage(WM_BG_THREAD_MSG);
+				//InvalidateRect(&frame_rect_, FALSE);
+				PostMessage(WM_FRAME_UPDATE_MSG);
 			}
 
 			if (random_count == 10) {
@@ -376,7 +382,7 @@ void CDrawCircleDlg::BGProcess() {
 
 }
 
-LRESULT CDrawCircleDlg::OnBGThreadMsg(WPARAM wParam, LPARAM lParam) {
+LRESULT CDrawCircleDlg::OnFrameUpdateMsg(WPARAM wParam, LPARAM lParam) {
 	InvalidateRect(&frame_rect_, FALSE);
 	return 0;
 }
@@ -393,6 +399,17 @@ void CDrawCircleDlg::OnDestroy()
 
 	std::cout << "Program Exit" << std::endl;
 
+	p_config_dlg_.reset();
 
 	CDialogEx::OnDestroy();
+}
+
+
+void CDrawCircleDlg::OnBnClickedBtnConfig()
+{
+	// 설정 기능 추가 
+	// - 클릭 지점 원 반지름
+	// - 정원 가장자리 두께
+
+	p_config_dlg_->ShowWindow(SW_SHOW);
 }

@@ -184,6 +184,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="canvas.h" />
+    <ClInclude Include="ConfigDlg.h" />
     <ClInclude Include="DrawCircle.h" />
     <ClInclude Include="DrawCircleDlg.h" />
     <ClInclude Include="fonts_8x16.h" />
@@ -197,6 +198,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="canvas.cpp" />
+    <ClCompile Include="ConfigDlg.cpp" />
     <ClCompile Include="DrawCircle.cpp" />
     <ClCompile Include="DrawCircleDlg.cpp" />
     <ClCompile Include="mouse_controller.cpp" />
