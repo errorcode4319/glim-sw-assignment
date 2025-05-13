@@ -202,7 +202,7 @@ void CDrawCircleDlg::OnBnClickedBtnStop()
 void CDrawCircleDlg::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	CDialogEx::OnLButtonDown(nFlags, point);
-
+	mouse_ctl_.Click(point.x, point.y);
 
 	// TODO: 현재 Random 모드가 아닐 경우 + 포인트를 3개 다 찍지 않은 경우 포인트 찍기
 	std::cout << "Mouse Down (x: " << point.x << ", y: " << point.y << ")\n";
@@ -215,8 +215,14 @@ void CDrawCircleDlg::OnLButtonDown(UINT nFlags, CPoint point)
 void CDrawCircleDlg::OnMouseMove(UINT nFlags, CPoint point)
 {
 	CDialogEx::OnMouseMove(nFlags, point);
+	mouse_ctl_.MoveTo(point.x, point.y);
 
 	// TODO: 드래그 상태일 경우, 해당 포인트 위치 이동
+
+
+
+
+
 
 	CPaintDC dc(this); // device context for painting
 	canvas_.BufferUpdate();
@@ -227,6 +233,7 @@ void CDrawCircleDlg::OnMouseMove(UINT nFlags, CPoint point)
 void CDrawCircleDlg::OnLButtonUp(UINT nFlags, CPoint point)
 {
 	CDialogEx::OnLButtonUp(nFlags, point);
+	mouse_ctl_.Release();
 	
 	// TODO: 포인트 드래그 상태 해제 
 

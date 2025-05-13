@@ -5,6 +5,8 @@
 #pragma once
 
 #include "canvas.h"
+#include "mouse_control.h"
+#include "solver.h"
 
 // CDrawCircleDlg dialog
 class CDrawCircleDlg : public CDialogEx
@@ -37,6 +39,8 @@ protected:
 
 private:
 	Canvas canvas_;
+	MouseController mouse_ctl_;
+	Solver solver_;
 
 
 public:

@@ -2,7 +2,7 @@
 
 #include "utils.h"
 
-namespace ATL {	// Forward Decl
+namespace ATL {	// MFC
 	class CImage;
 }
 

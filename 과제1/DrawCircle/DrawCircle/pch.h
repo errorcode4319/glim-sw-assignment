@@ -11,5 +11,7 @@
 #include "framework.h"
 
 #include "canvas.h"
+#include "mouse_control.h"
+#include "solver.h"
 
 #endif //PCH_H
