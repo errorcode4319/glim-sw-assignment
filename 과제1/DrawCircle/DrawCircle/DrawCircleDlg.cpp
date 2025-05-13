@@ -178,7 +178,8 @@ HCURSOR CDrawCircleDlg::OnQueryDragIcon()
 void CDrawCircleDlg::OnBnClickedBtnClear()
 {
 	// TODO: Canvas 초기화 + PointManager 초기화
-
+	canvas_.BufferClear();
+	solver_.Clear();
 	Invalidate();
 }
 
@@ -202,10 +203,26 @@ void CDrawCircleDlg::OnBnClickedBtnStop()
 void CDrawCircleDlg::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	CDialogEx::OnLButtonDown(nFlags, point);
-	mouse_ctl_.Click(point.x, point.y);
+	mouse_ctl_.Click(point.x - 10, point.y - 10);
+
+	auto pos = mouse_ctl_.GetCurMouseCoord();
 
 	// TODO: 현재 Random 모드가 아닐 경우 + 포인트를 3개 다 찍지 않은 경우 포인트 찍기
-	std::cout << "Mouse Down (x: " << point.x << ", y: " << point.y << ")\n";
+	std::cout << "Mouse Down (x: " << pos.x << ", y: " << pos.y << ")\n";
+
+	if (solver_.GetPointCount() < 3) {
+		solver_.AddPoint(pos.x, pos.y);
+		canvas_.DrawCircle(pos.x, pos.y, 10, -1);
+
+		if (solver_.GetPointCount() == 3) {
+			auto result = solver_.Solve();
+			canvas_.DrawCircle(result.x, result.y, result.r, 3);
+		}
+	}
+	else {
+		// TODO: 포인트 선택 및 드래그 기능 추가 
+		
+	}
 
 
 	Invalidate();
@@ -218,10 +235,7 @@ void CDrawCircleDlg::OnMouseMove(UINT nFlags, CPoint point)
 	mouse_ctl_.MoveTo(point.x, point.y);
 
 	// TODO: 드래그 상태일 경우, 해당 포인트 위치 이동
-
-
-
-
+	
 
 
 	CPaintDC dc(this); // device context for painting

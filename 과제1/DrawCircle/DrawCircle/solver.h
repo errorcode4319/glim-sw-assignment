@@ -1,9 +1,6 @@
 #pragma once
 
-#include <iostream>
-#include <vector>
-#include <cmath>
-#include <random>
+#include "utils.h"
 
 struct Coord {
 	int		x;

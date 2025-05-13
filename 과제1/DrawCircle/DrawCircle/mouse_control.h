@@ -1,6 +1,6 @@
 #pragma once
 
-
+#include "utils.h"
 
 struct MouseCoord {
 	int		x = 0;

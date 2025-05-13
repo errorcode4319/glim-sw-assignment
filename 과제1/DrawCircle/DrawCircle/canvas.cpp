@@ -24,11 +24,15 @@ bool Canvas::Init(int width, int height, uint8_t color) {
 	mfc_image_ = std::make_unique<ATL::CImage>();
 	mfc_image_->Create(width_, height_, bpp_);
 
-	RGBQUAD color_table[256];
-	for (int i = 0; i < 256; i++) {
-		color_table[i] = RGBQUAD{uint8_t(i), uint8_t(i), uint8_t(i), 0};
+	RGBQUAD palette[256];
+	for (int i = 0; i < 256; ++i)
+	{
+		palette[i].rgbRed = i;
+		palette[i].rgbGreen = i;
+		palette[i].rgbBlue = i;
+		palette[i].rgbReserved = 0;
 	}
-	mfc_image_->SetColorTable(0, 256, color_table);
+	mfc_image_->SetColorTable(0, 256, palette);
 
 	return true;
 }
@@ -39,13 +43,35 @@ void Canvas::BufferClear(uint8_t color) {
 
 bool Canvas::DrawCircle(int x, int y, int r, int thickness) {
 
+	if (r <= 0) 
+		return false;
+
+	int x_start = max(x - r, 0);
+	int y_start = max(y - r, 0);
+	int x_end = min(x+r, width_);
+	int y_end = min(y+r, height_);
+
+
+	for (int i = y_start; i < y_end; i++) {
+		for (int j = x_start; j < x_end; j++) {
+			double dist = sqrt((i-y)*(i-y) + (j-x)*(j-x));
+			int idx = i * width_ + j;
+
+			if (thickness == -1 && dist <= r) {	// Fill
+				frame_buffer_[idx] = 0;
+			}
+			else if (dist <= r && dist >= double(r - thickness)) {
+				frame_buffer_[idx] = 0;
+			}
+		}
+ 	}
 
 	return true;
 }
 
 void Canvas::BufferUpdate() {
-	auto pitch = mfc_image_->GetPitch();
-	auto* p_dst = reinterpret_cast<uint8_t*>(mfc_image_->GetBits());
+	int pitch = mfc_image_->GetPitch();
+	BYTE* p_dst = reinterpret_cast<BYTE*>(mfc_image_->GetBits());
 	for (int row = 0; row < height_; row++) {
 		std::memcpy(p_dst + row * pitch, &frame_buffer_[0] + row * width_, width_);
 	}
