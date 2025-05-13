@@ -23,7 +23,7 @@ bool Solver::MovePoint(int idx, int x, int y) {
 		return false;
 	}
 	points_[idx].x = x;
-	points_[idx].x = y;
+	points_[idx].y = y;
 	return true;
 }
 

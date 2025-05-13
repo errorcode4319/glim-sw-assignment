@@ -41,7 +41,7 @@ void Canvas::BufferClear(uint8_t color) {
 	std::fill(frame_buffer_.begin(), frame_buffer_.end(), color);
 }
 
-bool Canvas::DrawCircle(int x, int y, int r, int thickness) {
+bool Canvas::DrawCircle(int x, int y, int r, int thickness, uint8_t color) {
 
 	if (r <= 0) 
 		return false;
@@ -58,10 +58,10 @@ bool Canvas::DrawCircle(int x, int y, int r, int thickness) {
 			int idx = i * width_ + j;
 
 			if (thickness == -1 && dist <= r) {	// Fill
-				frame_buffer_[idx] = 0;
+				frame_buffer_[idx] = color;
 			}
 			else if (dist <= r && dist >= double(r - thickness)) {
-				frame_buffer_[idx] = 0;
+				frame_buffer_[idx] = color;
 			}
 		}
  	}

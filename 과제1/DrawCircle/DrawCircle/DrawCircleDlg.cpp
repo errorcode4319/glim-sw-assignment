@@ -114,7 +114,7 @@ BOOL CDrawCircleDlg::OnInitDialog()
 
 	// TODO: Add extra initialization here
 
-	canvas_.Init(720, 480);
+	canvas_.Init(frame_width, frame_height);
 	canvas_.BufferClear(255);
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
@@ -158,13 +158,31 @@ void CDrawCircleDlg::OnPaint()
 	}
 	else
 	{
-		CPaintDC dc(this); // device context for painting
-
-		canvas_.BufferUpdate();
-		canvas_.GetMFCImage()->Draw(dc, 10, 10);
+		UpdateCanvasFrame();
 
 		CDialogEx::OnPaint();
 	}
+}
+
+void CDrawCircleDlg::UpdateCanvasFrame() {
+	CPaintDC dc(this); // device context for painting
+
+	canvas_.BufferClear();
+
+	const auto& points = solver_.GetPoints();
+	for (int i = 0; i < points.size();i++) {
+		uint8_t color = 0;
+		if (i == cur_point_idx_) color = 128;
+		canvas_.DrawCircle(points[i].x, points[i].y, point_r_, -1, color);
+	}
+
+	if (solver_.GetPointCount() == 3) {
+		auto result = solver_.Solve();
+		canvas_.DrawCircle(result.x, result.y, result.r, circle_thickness_);
+	}
+
+	canvas_.BufferUpdate();
+	canvas_.GetMFCImage()->Draw(dc, frame_offset_x, frame_offset_y);
 }
 
 // The system calls this function to obtain the cursor to display while the user drags
@@ -178,7 +196,7 @@ HCURSOR CDrawCircleDlg::OnQueryDragIcon()
 void CDrawCircleDlg::OnBnClickedBtnClear()
 {
 	// TODO: Canvas 초기화 + PointManager 초기화
-	canvas_.BufferClear();
+	cur_point_idx_ = -1;
 	solver_.Clear();
 	Invalidate();
 }
@@ -199,48 +217,71 @@ void CDrawCircleDlg::OnBnClickedBtnStop()
 	Invalidate();
 }
 
+bool CDrawCircleDlg::CheckMouseInFrame(CPoint pt) {
+	// 마우스 클릭 좌표가 프레임 영역을 벗어난 경우 
+	if (pt.x < frame_offset_x || pt.x >= frame_offset_x + frame_width ||
+		pt.y < frame_offset_y || pt.y >= frame_offset_y + frame_height)
+		return false;
+	return true;
+}
+
 // Mouse L Button Down
 void CDrawCircleDlg::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	CDialogEx::OnLButtonDown(nFlags, point);
-	mouse_ctl_.Click(point.x - 10, point.y - 10);
 
-	auto pos = mouse_ctl_.GetCurMouseCoord();
+	if (!CheckMouseInFrame(point))
+		return;
+
+	mouse_ctl_.Click(point.x - frame_offset_x, point.y - frame_offset_y);
+
+	auto mpos = mouse_ctl_.GetCurMouseCoord();
 
 	// TODO: 현재 Random 모드가 아닐 경우 + 포인트를 3개 다 찍지 않은 경우 포인트 찍기
-	std::cout << "Mouse Down (x: " << pos.x << ", y: " << pos.y << ")\n";
+	std::cout << "Mouse Down (x: " << mpos.x << ", y: " << mpos.y << ")\n";
 
+	// 포인트 추가 
 	if (solver_.GetPointCount() < 3) {
-		solver_.AddPoint(pos.x, pos.y);
-		canvas_.DrawCircle(pos.x, pos.y, 10, -1);
-
-		if (solver_.GetPointCount() == 3) {
-			auto result = solver_.Solve();
-			canvas_.DrawCircle(result.x, result.y, result.r, 3);
-		}
+		solver_.AddPoint(mpos.x, mpos.y);
 	}
+	// 포인트 선택 
 	else {
-		// TODO: 포인트 선택 및 드래그 기능 추가 
 		
+		const auto& points = solver_.GetPoints();
+		
+		cur_point_idx_ = -1;
+		for (int i = 0; i < points.size(); i++) {
+			auto pt = points[i];
+			auto dist = GetDistance(mpos.x, mpos.y, pt.x, pt.y);
+
+			if (dist <= double(point_r_)) {
+				cur_point_idx_ = i;
+				break;
+			}
+		}
+
 	}
 
-
-	Invalidate();
+	InvalidateRect(&frame_rect_, FALSE);
 }
 
 // Mouse Move 
 void CDrawCircleDlg::OnMouseMove(UINT nFlags, CPoint point)
 {
 	CDialogEx::OnMouseMove(nFlags, point);
-	mouse_ctl_.MoveTo(point.x, point.y);
+		
+	if (!CheckMouseInFrame(point))
+		return;
 
-	// TODO: 드래그 상태일 경우, 해당 포인트 위치 이동
-	
+	mouse_ctl_.MoveTo(point.x - frame_offset_x, point.y - frame_offset_y);
+	auto mpos = mouse_ctl_.GetCurMouseCoord();
 
-
-	CPaintDC dc(this); // device context for painting
-	canvas_.BufferUpdate();
-	canvas_.GetMFCImage()->Draw(dc, 10, 10);
+	// 마우스 드래그 상태일 경우 + 현재 선택된 포인트가 있을 경우 -> 포인트 위치 이동
+	if (mouse_ctl_.OnDrag() && cur_point_idx_ != -1) {
+		solver_.MovePoint(cur_point_idx_, mpos.x, mpos.y);
+		std::cout << "Mouse Move (cur_poins: " << cur_point_idx_ << "x: " << mpos.x << ", y : " << mpos.y << ")\n";
+	}
+	InvalidateRect(&frame_rect_, FALSE);
 }
 
 // Mouse L Button Release 
@@ -248,10 +289,8 @@ void CDrawCircleDlg::OnLButtonUp(UINT nFlags, CPoint point)
 {
 	CDialogEx::OnLButtonUp(nFlags, point);
 	mouse_ctl_.Release();
-	
-	// TODO: 포인트 드래그 상태 해제 
+	cur_point_idx_ = -1;
 
-	std::cout << "Mouse Release (x: " << point.x << ", y: " << point.y << ")\n";
-
-	Invalidate();
+	std::cout << "Mouse Release\n";
+	InvalidateRect(&frame_rect_, FALSE);
 }

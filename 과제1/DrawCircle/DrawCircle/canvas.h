@@ -16,7 +16,7 @@ public:
 
 	void BufferClear(uint8_t color = 255);
 
-	bool DrawCircle(int x, int y, int r, int thickness = 1);
+	bool DrawCircle(int x, int y, int r, int thickness = 1, uint8_t color = 0);
 
 	void BufferUpdate();
 

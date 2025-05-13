@@ -13,3 +13,6 @@
 #include <memory>
 
 #define OUT_METHOD_NAME "[" << typeid(*this).name() << "::" << __func__ << "]"
+
+
+double GetDistance(int x1, int y1, int x2, int y2);
