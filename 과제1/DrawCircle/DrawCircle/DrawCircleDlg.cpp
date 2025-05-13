@@ -75,6 +75,8 @@ BEGIN_MESSAGE_MAP(CDrawCircleDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BTN_CLEAR, &CDrawCircleDlg::OnBnClickedBtnClear)
 	ON_BN_CLICKED(IDC_BTN_RANDOM, &CDrawCircleDlg::OnBnClickedBtnRandom)
 	ON_BN_CLICKED(IDC_BTN_STOP, &CDrawCircleDlg::OnBnClickedBtnStop)
+	ON_MESSAGE(WM_BG_THREAD_MSG, &CDrawCircleDlg::OnBGThreadMsg)
+	ON_WM_DESTROY()
 END_MESSAGE_MAP()
 
 
@@ -114,8 +116,18 @@ BOOL CDrawCircleDlg::OnInitDialog()
 
 	// TODO: Add extra initialization here
 
-	canvas_.Init(frame_width, frame_height);
+	// Canvas 초기화
+	canvas_.Init(frame_width_, frame_height_);
 	canvas_.BufferClear(255);
+
+
+	// 백그라운드 쓰레드 초기화 
+	on_exit_ = false;
+	on_random_mode_ = false;
+	bg_thread_ = std::thread{ &CDrawCircleDlg::BGProcess, this };
+
+	// 버튼 상태 초기화 
+	UpdateButtonState(true, true, false);
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
@@ -182,7 +194,7 @@ void CDrawCircleDlg::UpdateCanvasFrame() {
 	}
 
 	canvas_.BufferUpdate();
-	canvas_.GetMFCImage()->Draw(dc, frame_offset_x, frame_offset_y);
+	canvas_.GetMFCImage()->Draw(dc, frame_offset_x_, frame_offset_y_);
 }
 
 // The system calls this function to obtain the cursor to display while the user drags
@@ -192,9 +204,23 @@ HCURSOR CDrawCircleDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+void CDrawCircleDlg::UpdateButtonState(bool btn_clear, bool btn_random, bool btn_stop) {
+	std::unique_lock<std::mutex> lock(btn_state_mut_);
+	GetDlgItem(IDC_BTN_CLEAR)->EnableWindow(btn_clear);
+	GetDlgItem(IDC_BTN_RANDOM)->EnableWindow(btn_random);
+	GetDlgItem(IDC_BTN_STOP)->EnableWindow(btn_stop);
+}
+
 // Clear Button 
 void CDrawCircleDlg::OnBnClickedBtnClear()
 {
+	std::cout << OUT_METHOD_NAME << std::endl;
+
+	// 이미 랜덤 모드가 실행중인 경우 
+	if (on_random_mode_ == true) {
+		return;
+	}
+
 	// TODO: Canvas 초기화 + PointManager 초기화
 	cur_point_idx_ = -1;
 	solver_.Clear();
@@ -204,7 +230,16 @@ void CDrawCircleDlg::OnBnClickedBtnClear()
 // Random Button 
 void CDrawCircleDlg::OnBnClickedBtnRandom()
 {
+	std::cout << OUT_METHOD_NAME << std::endl;
 	// TODO: 랜덤 포인트 생성 + 이미지 출력 로직 추가 
+
+	// 이미 랜덤 모드가 실행중인 경우 
+	if (on_random_mode_.load()) {
+		return;
+	}
+	
+	UpdateButtonState(false, false, true);
+	on_random_mode_.store(true);
 
 	Invalidate();
 }
@@ -212,15 +247,20 @@ void CDrawCircleDlg::OnBnClickedBtnRandom()
 // Stop Button 
 void CDrawCircleDlg::OnBnClickedBtnStop()
 {
+	std::cout << OUT_METHOD_NAME << std::endl;
 	// TODO: 랜덤 쓰레드 종료
+
+	on_random_mode_.store(false);
+	UpdateButtonState(true, true, false);
+
 
 	Invalidate();
 }
 
 bool CDrawCircleDlg::CheckMouseInFrame(CPoint pt) {
 	// 마우스 클릭 좌표가 프레임 영역을 벗어난 경우 
-	if (pt.x < frame_offset_x || pt.x >= frame_offset_x + frame_width ||
-		pt.y < frame_offset_y || pt.y >= frame_offset_y + frame_height)
+	if (pt.x < frame_offset_x_ || pt.x >= frame_offset_x_ + frame_width_ ||
+		pt.y < frame_offset_y_ || pt.y >= frame_offset_y_ + frame_height_)
 		return false;
 	return true;
 }
@@ -230,10 +270,14 @@ void CDrawCircleDlg::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	CDialogEx::OnLButtonDown(nFlags, point);
 
+	// 마우스가 프레임을 벗어난 경우
 	if (!CheckMouseInFrame(point))
 		return;
 
-	mouse_ctl_.Click(point.x - frame_offset_x, point.y - frame_offset_y);
+	if (on_random_mode_)
+		return;
+
+	mouse_ctl_.Click(point.x - frame_offset_x_, point.y - frame_offset_y_);
 
 	auto mpos = mouse_ctl_.GetCurMouseCoord();
 
@@ -246,7 +290,6 @@ void CDrawCircleDlg::OnLButtonDown(UINT nFlags, CPoint point)
 	}
 	// 포인트 선택 
 	else {
-		
 		const auto& points = solver_.GetPoints();
 		
 		cur_point_idx_ = -1;
@@ -259,7 +302,6 @@ void CDrawCircleDlg::OnLButtonDown(UINT nFlags, CPoint point)
 				break;
 			}
 		}
-
 	}
 
 	InvalidateRect(&frame_rect_, FALSE);
@@ -269,11 +311,14 @@ void CDrawCircleDlg::OnLButtonDown(UINT nFlags, CPoint point)
 void CDrawCircleDlg::OnMouseMove(UINT nFlags, CPoint point)
 {
 	CDialogEx::OnMouseMove(nFlags, point);
-		
+
 	if (!CheckMouseInFrame(point))
 		return;
+	
+	if (on_random_mode_)
+		return;
 
-	mouse_ctl_.MoveTo(point.x - frame_offset_x, point.y - frame_offset_y);
+	mouse_ctl_.MoveTo(point.x - frame_offset_x_, point.y - frame_offset_y_);
 	auto mpos = mouse_ctl_.GetCurMouseCoord();
 
 	// 마우스 드래그 상태일 경우 + 현재 선택된 포인트가 있을 경우 -> 포인트 위치 이동
@@ -291,6 +336,63 @@ void CDrawCircleDlg::OnLButtonUp(UINT nFlags, CPoint point)
 	mouse_ctl_.Release();
 	cur_point_idx_ = -1;
 
+	if (on_random_mode_)
+		return;
+
 	std::cout << "Mouse Release\n";
 	InvalidateRect(&frame_rect_, FALSE);
+}
+
+void CDrawCircleDlg::BGProcess() {
+
+	int random_count = 0;
+	uint64_t last_time_ms = 0;
+
+	while (!on_exit_.load()) {
+
+		if (on_random_mode_.load()) {
+			auto current_time_ms = GetEpochTimeMs();
+
+			if (current_time_ms - last_time_ms >= 500) {
+				last_time_ms = GetEpochTimeMs();
+				this->solver_.RandomGenerate(frame_width_, frame_height_);
+				random_count++;
+
+				PostMessage(WM_BG_THREAD_MSG);
+			}
+
+			if (random_count == 10) {
+				on_random_mode_.store(false);
+				UpdateButtonState(true, true, false);
+			}
+		}
+		else {
+			random_count = 0;
+			last_time_ms = 0;
+		}
+
+		SleepMs(50);
+	}
+
+}
+
+LRESULT CDrawCircleDlg::OnBGThreadMsg(WPARAM wParam, LPARAM lParam) {
+	InvalidateRect(&frame_rect_, FALSE);
+	return 0;
+}
+
+void CDrawCircleDlg::OnDestroy()
+{
+
+	// TODO: Add your message handler code here
+
+	on_random_mode_.store(false);
+	on_exit_.store(true);
+
+	bg_thread_.join();
+
+	std::cout << "Program Exit" << std::endl;
+
+
+	CDialogEx::OnDestroy();
 }
